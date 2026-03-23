@@ -1,8 +1,0 @@
-[{
-  "relation": ["delegate_permission/common.handle_all_urls"],
-  "target": {
-    "namespace": "android_app",
-    "package_name": "com.jamie.calorietracker",
-    "sha256_cert_fingerprints": ["AD:70:2E:78:81:82:2F:A4:46:C2:67:87:C0:0B:A8:AC:B6:2A:39:7B:55:CB:4E:50:7F:83:78:4B:95:A8:40:2B"]
-  }
-}]
