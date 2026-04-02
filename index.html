@@ -317,7 +317,8 @@
     <div class="sub-panel" id="sub-db">
       <div class="card">
         <h2>Meine Datenbank</h2>
-        <p style="color:var(--dim);font-size:.8rem;margin-bottom:11px">Klicken zum Hinzufügen · Gedrückt halten → Löschen.</p>
+        <p style="color:var(--dim);font-size:.8rem;margin-bottom:11px">Klicken zum Hinzufügen · ✕ zum Löschen.</p>
+        <input type="text" id="dbSearchInput" placeholder="🔍 Datenbank durchsuchen..." oninput="filterDb()" style="margin-bottom:11px"/>
         <div class="db-grid" id="dbGrid"></div>
       </div>
     </div>
@@ -403,6 +404,7 @@
       <div class="card">
         <h2>Meine Datenbank</h2>
         <p style="color:var(--dim);font-size:.8rem;margin-bottom:11px">Klicken zum Hinzufügen · ✕ zum Löschen.</p>
+        <input type="text" id="dbSearchInput2" placeholder="🔍 Datenbank durchsuchen..." oninput="filterDb2()" style="margin-bottom:11px"/>
         <div class="db-grid" id="dbGrid2"></div>
       </div>
     </div>
@@ -762,16 +764,27 @@ function renderQuickDb(){
   });
 }
 
-function renderFullDb(){
+function renderFullDb(q=''){
   const db=loadFoodDb();
   const grid=document.getElementById('dbGrid'); grid.innerHTML='';
-  if(!db.length){ grid.innerHTML='<div class="empty-state" style="grid-column:1/-1">Noch leer ✦<br><small style="display:block;margin-top:5px">Im "+ Hinzufügen"-Tab unten speichern</small></div>'; return; }
-  db.forEach((f,idx)=>{
+  const filtered=q ? db.filter(f=>f.name.toLowerCase().includes(q.toLowerCase())) : db;
+  if(!filtered.length){
+    grid.innerHTML=q
+      ? '<div class="empty-state" style="grid-column:1/-1">Keine Treffer ✦</div>'
+      : '<div class="empty-state" style="grid-column:1/-1">Noch leer ✦<br><small style="display:block;margin-top:5px">Im "+ Hinzufügen"-Tab unten speichern</small></div>';
+    return;
+  }
+  filtered.forEach(f=>{
+    const realIdx=db.indexOf(f);
     const d=document.createElement('div'); d.className='db-item';
-    d.innerHTML=`<button class="dbd" onclick="event.stopPropagation();deleteFromDb(${idx})">✕</button><div class="db-item-name">${esc(f.name)}</div><div class="db-item-macros">${f.kcal}k·${f.prot}gP<br>${f.carbs}gC·${f.fat}gF<span style="color:var(--muted)">/100g</span></div>`;
+    d.innerHTML=`<button class="dbd" onclick="event.stopPropagation();deleteFromDb(${realIdx})">✕</button><div class="db-item-name">${esc(f.name)}</div><div class="db-item-macros">${f.kcal}k·${f.prot}gP<br>${f.carbs}gC·${f.fat}gF<span style="color:var(--muted)">/100g</span></div>`;
     d.addEventListener('click',()=>openGramModal(f));
     grid.appendChild(d);
   });
+}
+function filterDb(){
+  const q=document.getElementById('dbSearchInput')?.value.trim()||'';
+  renderFullDb(q);
 }
 
 // ═══════════════════════════════════════════
@@ -1364,18 +1377,29 @@ function switchSub(id){
   if(id==='mehr-settings') loadSettingsForm();
 }
 
-function renderFullDb2(){
+function renderFullDb2(q=''){
   const db=loadFoodDb();
   const grid=document.getElementById('dbGrid2');
   if(!grid) return;
   grid.innerHTML='';
-  if(!db.length){grid.innerHTML='<div class="empty-state" style="grid-column:1/-1">Noch keine Lebensmittel ✦</div>';return;}
-  db.forEach((f,idx)=>{
+  const filtered=q ? db.filter(f=>f.name.toLowerCase().includes(q.toLowerCase())) : db;
+  if(!filtered.length){
+    grid.innerHTML=q
+      ? '<div class="empty-state" style="grid-column:1/-1">Keine Treffer ✦</div>'
+      : '<div class="empty-state" style="grid-column:1/-1">Noch keine Lebensmittel ✦</div>';
+    return;
+  }
+  filtered.forEach(f=>{
+    const realIdx=db.indexOf(f);
     const d=document.createElement('div'); d.className='db-item';
-    d.innerHTML=`<button class="dbd" onclick="event.stopPropagation();deleteFromDb(${idx})">✕</button><div class="db-item-name">${esc(f.name)}</div><div class="db-item-macros">${f.kcal}k·${f.prot}gP<br>${f.carbs}gC·${f.fat}gF<span style="color:var(--muted)">/100g</span></div>`;
+    d.innerHTML=`<button class="dbd" onclick="event.stopPropagation();deleteFromDb(${realIdx})">✕</button><div class="db-item-name">${esc(f.name)}</div><div class="db-item-macros">${f.kcal}k·${f.prot}gP<br>${f.carbs}gC·${f.fat}gF<span style="color:var(--muted)">/100g</span></div>`;
     d.addEventListener('click',()=>openGramModal(f));
     grid.appendChild(d);
   });
+}
+function filterDb2(){
+  const q=document.getElementById('dbSearchInput2')?.value.trim()||'';
+  renderFullDb2(q);
 }
 
 // ═══════════════════════════════════════════
