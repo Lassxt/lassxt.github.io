@@ -280,11 +280,22 @@
     <div class="sub-panel" id="sub-search">
       <div class="card">
         <h2>Lebensmittel suchen</h2>
-        <p style="color:var(--dim);font-size:.8rem;margin-bottom:11px">Open Food Facts – alle Makros werden übernommen.</p>
-        <div style="display:flex;gap:7px;margin-bottom:11px">
-          <input type="text" id="searchInput" placeholder="z.B. Skyr, Haferflocken..." style="flex:1"/>
+        <div style="display:flex;gap:7px;margin-bottom:14px">
+          <input type="text" id="searchInput" placeholder="z.B. Skyr, Nuggets, Whey..." style="flex:1" oninput="onSearchInput()"/>
           <button class="btn btn-p" style="width:auto;padding:9px 14px" onclick="searchFood()">Suchen</button>
         </div>
+
+        <!-- DB-Treffer (erscheint live beim Tippen) -->
+        <div id="searchDbHits" style="display:none">
+          <div class="divider">In deiner Datenbank</div>
+          <div id="searchDbResults"></div>
+        </div>
+
+        <!-- Trennlinie vor Online-Ergebnissen -->
+        <div id="searchOnlineDivider" style="display:none">
+          <div class="divider">Online – Open Food Facts</div>
+        </div>
+
         <div id="searchLoading" style="display:none;text-align:center;padding:16px;color:var(--dim);font-size:.8rem">⟳ Suche läuft...</div>
         <div id="searchError" style="display:none;color:var(--danger);font-size:.8rem;padding:7px 0"></div>
         <div id="searchResults"></div>
@@ -317,8 +328,7 @@
     <div class="sub-panel" id="sub-db">
       <div class="card">
         <h2>Meine Datenbank</h2>
-        <p style="color:var(--dim);font-size:.8rem;margin-bottom:11px">Klicken zum Hinzufügen · ✕ zum Löschen.</p>
-        <input type="text" id="dbSearchInput" placeholder="🔍 Datenbank durchsuchen..." oninput="filterDb()" style="margin-bottom:11px"/>
+        <input type="text" id="dbSearchInput" placeholder="Datenbank durchsuchen..." style="margin-bottom:12px" oninput="renderFullDb()"/>
         <div class="db-grid" id="dbGrid"></div>
       </div>
     </div>
@@ -403,8 +413,7 @@
     <div class="sub-panel active" id="sub-mehr-db">
       <div class="card">
         <h2>Meine Datenbank</h2>
-        <p style="color:var(--dim);font-size:.8rem;margin-bottom:11px">Klicken zum Hinzufügen · ✕ zum Löschen.</p>
-        <input type="text" id="dbSearchInput2" placeholder="🔍 Datenbank durchsuchen..." oninput="filterDb2()" style="margin-bottom:11px"/>
+        <input type="text" id="dbSearchInput2" placeholder="Datenbank durchsuchen..." style="margin-bottom:12px" oninput="renderFullDb2()"/>
         <div class="db-grid" id="dbGrid2"></div>
       </div>
     </div>
@@ -764,27 +773,24 @@ function renderQuickDb(){
   });
 }
 
-function renderFullDb(q=''){
-  const db=loadFoodDb();
-  const grid=document.getElementById('dbGrid'); grid.innerHTML='';
-  const filtered=q ? db.filter(f=>f.name.toLowerCase().includes(q.toLowerCase())) : db;
+function renderFullDb(){
+  const db   = loadFoodDb();
+  const grid = document.getElementById('dbGrid');
+  if(!grid) return;
+  const q = (document.getElementById('dbSearchInput')?.value||'').toLowerCase().trim();
+  const filtered = q ? db.filter(f=>f.name.toLowerCase().includes(q)) : db;
+  grid.innerHTML='';
   if(!filtered.length){
-    grid.innerHTML=q
-      ? '<div class="empty-state" style="grid-column:1/-1">Keine Treffer ✦</div>'
-      : '<div class="empty-state" style="grid-column:1/-1">Noch leer ✦<br><small style="display:block;margin-top:5px">Im "+ Hinzufügen"-Tab unten speichern</small></div>';
+    grid.innerHTML=`<div class="empty-state" style="grid-column:1/-1">${q?`Keine Treffer für "${q}" ✦`:'Noch leer ✦<br><small style="display:block;margin-top:5px">Im "+ Hinzufügen"-Tab speichern</small>'}</div>`;
     return;
   }
   filtered.forEach(f=>{
-    const realIdx=db.indexOf(f);
+    const idx=db.indexOf(f);
     const d=document.createElement('div'); d.className='db-item';
-    d.innerHTML=`<button class="dbd" onclick="event.stopPropagation();deleteFromDb(${realIdx})">✕</button><div class="db-item-name">${esc(f.name)}</div><div class="db-item-macros">${f.kcal}k·${f.prot}gP<br>${f.carbs}gC·${f.fat}gF<span style="color:var(--muted)">/100g</span></div>`;
+    d.innerHTML=`<button class="dbd" onclick="event.stopPropagation();deleteFromDb(${idx})">✕</button><div class="db-item-name">${esc(f.name)}</div><div class="db-item-macros">${f.kcal}k·${f.prot}gP<br>${f.carbs}gC·${f.fat}gF<span style="color:var(--muted)">/100g</span></div>`;
     d.addEventListener('click',()=>openGramModal(f));
     grid.appendChild(d);
   });
-}
-function filterDb(){
-  const q=document.getElementById('dbSearchInput')?.value.trim()||'';
-  renderFullDb(q);
 }
 
 // ═══════════════════════════════════════════
@@ -1157,20 +1163,58 @@ function saveSettings(){
 }
 
 // ═══════════════════════════════════════════
-//  SEARCH (Open Food Facts)
+//  SEARCH (DB-first + Open Food Facts)
 // ═══════════════════════════════════════════
 document.getElementById('searchInput').addEventListener('keydown',e=>{if(e.key==='Enter')searchFood();});
+
+// Live DB-Suche beim Tippen
+function onSearchInput(){
+  const q=(document.getElementById('searchInput').value||'').toLowerCase().trim();
+  const dbHitsEl=document.getElementById('searchDbHits');
+  const dbResEl =document.getElementById('searchDbResults');
+
+  if(!q){ dbHitsEl.style.display='none'; return; }
+
+  const db=loadFoodDb();
+  const hits=db.filter(f=>f.name.toLowerCase().includes(q));
+
+  if(!hits.length){ dbHitsEl.style.display='none'; return; }
+
+  dbHitsEl.style.display='block';
+  dbResEl.innerHTML='';
+  hits.forEach(f=>{
+    const div=document.createElement('div');
+    div.className='entry-item';
+    div.style.cssText='cursor:pointer;margin-bottom:6px';
+    div.innerHTML=`
+      <span class="entry-name">${esc(f.name)}</span>
+      <span class="entry-macros">
+        <span class="mk">${f.kcal}k</span>
+        <span class="mp">${f.prot}P</span>
+        <span class="mc">${f.carbs}C</span>
+        <span class="mf">${f.fat}F</span>
+        <span style="color:var(--muted);font-size:.6rem"> /100g</span>
+      </span>`;
+    div.addEventListener('click',()=>openGramModal(f));
+    dbResEl.appendChild(div);
+  });
+}
 
 async function searchFood(){
   const q=document.getElementById('searchInput').value.trim();
   if(!q){showToast('Suchbegriff eingeben!');return;}
+
+  // DB-Treffer anzeigen
+  onSearchInput();
+
+  // Online-Divider anzeigen
+  document.getElementById('searchOnlineDivider').style.display='block';
   document.getElementById('searchLoading').style.display='block';
   document.getElementById('searchError').style.display='none';
   document.getElementById('searchResults').innerHTML='';
   try{
-    // world.openfoodfacts.org unterstützt CORS – direkt aufrufen
     const url=`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(q)}&search_simple=1&action=process&json=1&page_size=12&fields=product_name,brands,nutriments,code`;
-    const res=await fetch(url, {method:'GET', headers:{'Accept':'application/json'}});
+    const res=await fetch(url,{method:'GET',headers:{'Accept':'application/json'}});
     if(!res.ok) throw new Error(`Status ${res.status}`);
     const data=await res.json();
     document.getElementById('searchLoading').style.display='none';
@@ -1178,7 +1222,7 @@ async function searchFood(){
   }catch(err){
     document.getElementById('searchLoading').style.display='none';
     document.getElementById('searchError').style.display='block';
-    document.getElementById('searchError').textContent=`⚠ Suche fehlgeschlagen: ${err.message}. Internetverbindung prüfen.`;
+    document.getElementById('searchError').textContent=`⚠ Suche fehlgeschlagen: ${err.message}`;
   }
 }
 
@@ -1377,29 +1421,24 @@ function switchSub(id){
   if(id==='mehr-settings') loadSettingsForm();
 }
 
-function renderFullDb2(q=''){
-  const db=loadFoodDb();
-  const grid=document.getElementById('dbGrid2');
+function renderFullDb2(){
+  const db   = loadFoodDb();
+  const grid = document.getElementById('dbGrid2');
   if(!grid) return;
+  const q = (document.getElementById('dbSearchInput2')?.value||'').toLowerCase().trim();
+  const filtered = q ? db.filter(f=>f.name.toLowerCase().includes(q)) : db;
   grid.innerHTML='';
-  const filtered=q ? db.filter(f=>f.name.toLowerCase().includes(q.toLowerCase())) : db;
   if(!filtered.length){
-    grid.innerHTML=q
-      ? '<div class="empty-state" style="grid-column:1/-1">Keine Treffer ✦</div>'
-      : '<div class="empty-state" style="grid-column:1/-1">Noch keine Lebensmittel ✦</div>';
+    grid.innerHTML=`<div class="empty-state" style="grid-column:1/-1">${q?`Keine Treffer für "${q}" ✦`:'Noch keine Lebensmittel ✦'}</div>`;
     return;
   }
   filtered.forEach(f=>{
-    const realIdx=db.indexOf(f);
+    const idx=db.indexOf(f);
     const d=document.createElement('div'); d.className='db-item';
-    d.innerHTML=`<button class="dbd" onclick="event.stopPropagation();deleteFromDb(${realIdx})">✕</button><div class="db-item-name">${esc(f.name)}</div><div class="db-item-macros">${f.kcal}k·${f.prot}gP<br>${f.carbs}gC·${f.fat}gF<span style="color:var(--muted)">/100g</span></div>`;
+    d.innerHTML=`<button class="dbd" onclick="event.stopPropagation();deleteFromDb(${idx})">✕</button><div class="db-item-name">${esc(f.name)}</div><div class="db-item-macros">${f.kcal}k·${f.prot}gP<br>${f.carbs}gC·${f.fat}gF<span style="color:var(--muted)">/100g</span></div>`;
     d.addEventListener('click',()=>openGramModal(f));
     grid.appendChild(d);
   });
-}
-function filterDb2(){
-  const q=document.getElementById('dbSearchInput2')?.value.trim()||'';
-  renderFullDb2(q);
 }
 
 // ═══════════════════════════════════════════
